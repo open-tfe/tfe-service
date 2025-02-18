@@ -6,7 +6,7 @@ import (
 )
 
 func (r *Router) registerOrganizationRoutes(api *mux.Router) {
-	orgHandler := handlers.NewOrganizationHandler(r.services.Organization, r.logger)
+	orgHandler := handlers.NewOrganizationHandler(r.service, r.logger)
 
 	// Organizations endpoints
 	api.HandleFunc("/organizations", orgHandler.List).Methods("GET")
@@ -16,7 +16,7 @@ func (r *Router) registerOrganizationRoutes(api *mux.Router) {
 	api.HandleFunc("/organizations/{name}", orgHandler.Delete).Methods("DELETE")
 
 	// Organization entitlement set
-	api.HandleFunc("/organizations/{name}/entitlement-set", orgHandler.ShowEntitlementSet).Methods("GET")
+	api.HandleFunc("/organizations/{name}/entitlement-set", orgHandler.ReadEntitlements).Methods("GET")
 
 	// Organization relationships
 	api.HandleFunc("/organizations/{name}/relationships/module-producers", orgHandler.ShowModuleProducers).Methods("GET")

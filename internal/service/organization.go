@@ -7,19 +7,9 @@ import (
 	"github.com/hashicorp/go-tfe"
 	"github.com/open-tfe/tfe-service/internal/models"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
-type organizationService struct {
-	db     *gorm.DB
-	logger *zap.Logger
-}
-
-func NewOrganizationService(db *gorm.DB, logger *zap.Logger) OrganizationService {
-	return &organizationService{db: db, logger: logger}
-}
-
-func (s *organizationService) List(ctx context.Context, query string) ([]*tfe.Organization, error) {
+func (s *service) ListOrganizations(ctx context.Context, query string) ([]*tfe.Organization, error) {
 	var orgs []*models.Organization
 	db := s.db
 
@@ -40,41 +30,50 @@ func (s *organizationService) List(ctx context.Context, query string) ([]*tfe.Or
 	return tfeOrgs, nil
 }
 
-func (s *organizationService) Create(ctx context.Context, tfeOrg *tfe.Organization) (*tfe.Organization, error) {
-	org := models.FromTFEOrganization(tfeOrg)
-	s.logger.Debug("converting from TFE organization", zap.Any("organization", tfeOrg))
+func (s *service) CreateOrganization(ctx context.Context, org *tfe.Organization) (*tfe.Organization, error) {
+	tforg := models.FromTFEOrganization(org)
+	s.logger.Debug("converting from TFE organization", zap.Any("organization", org))
 
-	if err := s.db.Create(org).Error; err != nil {
+	if err := s.db.Create(tforg).Error; err != nil {
 		s.logger.Error("failed to create organization", zap.Error(err))
 		return nil, err
 	}
 
-	return org.ToTFE(), nil
+	return tforg.ToTFE(), nil
 }
 
-func (s *organizationService) Read(ctx context.Context, name string) (*tfe.Organization, error) {
+func (s *service) ReadOrganization(ctx context.Context, name string) (*tfe.Organization, error) {
 	var org models.Organization
 	if err := s.db.Where("name = ?", name).First(&org).Error; err != nil {
 		s.logger.Error("failed to read organization", zap.Error(err))
 		return nil, err
+	}
+	projects, _, err := s.ListProjects(ctx, org.ID)
+	if err != nil {
+		s.logger.Error("failed to list projects", zap.Error(err))
+		return nil, err
+	}
+	org.Projects = projects
+	if org.DefaultProject == nil {
+		org.DefaultProject = projects[0]
 	}
 
 	s.logger.Debug("converting to TFE organization", zap.Any("organization", org))
 	return org.ToTFE(), nil
 }
 
-func (s *organizationService) Update(ctx context.Context, name string, tfeOrg *tfe.Organization) error {
-	org := models.FromTFEOrganization(tfeOrg)
-	s.logger.Debug("converting from TFE organization", zap.Any("organization", tfeOrg))
+func (s *service) UpdateOrganization(ctx context.Context, name string, org *tfe.Organization) error {
+	tforg := models.FromTFEOrganization(org)
+	s.logger.Debug("converting from TFE organization", zap.Any("organization", org))
 
-	if err := s.db.Where("name = ?", name).Updates(org).Error; err != nil {
+	if err := s.db.Where("name = ?", name).Updates(tforg).Error; err != nil {
 		s.logger.Error("failed to update organization", zap.Error(err))
 		return err
 	}
 	return nil
 }
 
-func (s *organizationService) Delete(ctx context.Context, name string) error {
+func (s *service) DeleteOrganization(ctx context.Context, name string) error {
 	if err := s.db.Where("name = ?", name).Delete(&models.Organization{}).Error; err != nil {
 		s.logger.Error("failed to delete organization", zap.Error(err))
 		return err
@@ -82,11 +81,33 @@ func (s *organizationService) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
-func (s *organizationService) GetIDByName(ctx context.Context, name string) (uuid.UUID, error) {
+func (s *service) GetOrganizationIDByName(ctx context.Context, name string) (uuid.UUID, error) {
 	var org models.Organization
 	if err := s.db.Where("name = ?", name).First(&org).Error; err != nil {
 		s.logger.Error("failed to get organization ID", zap.Error(err))
 		return uuid.Nil, err
 	}
 	return org.ID, nil
+}
+
+func (s *service) ReadOrganizationEntitlements(ctx context.Context, name string) (*tfe.Entitlements, error) {
+
+	entitlements := &tfe.Entitlements{
+		Agents:                     true,
+		AuditLogging:               true,
+		CostEstimation:             true,
+		GlobalRunTasks:             true,
+		Operations:                 true,
+		PrivateModuleRegistry:      true,
+		RunTasks:                   true,
+		SSO:                        true,
+		Sentinel:                   true,
+		StateStorage:               true,
+		Teams:                      true,
+		VCSIntegrations:            true,
+		WaypointActions:            true,
+		WaypointTemplatesAndAddons: true,
+	}
+
+	return entitlements, nil
 }

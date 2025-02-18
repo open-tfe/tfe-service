@@ -8,7 +8,7 @@ import (
 
 type Project struct {
 	gorm.Model
-	ID             string        `gorm:"primaryKey;type:varchar(255)" jsonapi:"primary,projects"`
+	ID             uuid.UUID     `gorm:"primaryKey;type:uuid" jsonapi:"primary,projects"`
 	IsUnified      bool          `gorm:"default:false" jsonapi:"attr,is-unified"`
 	Name           string        `gorm:"not null" jsonapi:"attr,name"`
 	Description    string        `gorm:"type:text" jsonapi:"attr,description"`
@@ -20,17 +20,22 @@ type Project struct {
 // ToTFE converts the internal Project model to TFE format
 func (p *Project) ToTFE() *tfe.Project {
 	return &tfe.Project{
-		ID:          p.ID,
+		ID:          p.ID.String(),
+		IsUnified:   p.IsUnified,
 		Name:        p.Name,
 		Description: p.Description,
-		IsUnified:   p.IsUnified,
 	}
 }
 
-// FromTFE converts a TFE Project to internal model
+// FromTFEProject converts a TFE Project to internal model
 func FromTFEProject(proj *tfe.Project) *Project {
+	id, err := uuid.Parse(proj.ID)
+	if err != nil {
+		return nil
+	}
+
 	return &Project{
-		ID:          proj.ID,
+		ID:          id,
 		Name:        proj.Name,
 		Description: proj.Description,
 		IsUnified:   proj.IsUnified,

@@ -37,8 +37,8 @@ type Organization struct {
 	AllowForceDeleteWorkspaces bool `gorm:"default:false" jsonapi:"attr,allow-force-delete-workspaces"`
 
 	// Relations
-	DefaultProject *Project  `gorm:"foreignKey:OrganizationID" jsonapi:"relation,default-project"`
-	Projects       []Project `gorm:"foreignKey:OrganizationID"`
+	DefaultProject *Project   `gorm:"foreignKey:OrganizationID" jsonapi:"relation,default-project"`
+	Projects       []*Project `gorm:"foreignKey:OrganizationID"`
 	// DefaultAgentPool *AgentPool `jsonapi:"relation,default-agent-pool"`
 
 	// Deprecated: Use DataRetentionPolicyChoice instead.

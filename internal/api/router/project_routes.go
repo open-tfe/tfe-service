@@ -6,7 +6,7 @@ import (
 )
 
 func (r *Router) registerProjectRoutes(api *mux.Router) {
-	projectHandler := handlers.NewProjectHandler(r.services.Project, r.services.Organization, r.logger)
+	projectHandler := handlers.NewProjectHandler(r.service, r.logger)
 
 	// Project endpoints
 	api.HandleFunc("/organizations/{organization_name}/projects", projectHandler.List).Methods("GET")

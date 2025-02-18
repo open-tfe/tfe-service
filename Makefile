@@ -55,3 +55,10 @@ migrate:
 
 run:
 	$(GOCMD) run cmd/server/main.go
+
+migrate-prod:
+	set -a; . ./.env; set +a; atlas schema apply \
+	-u "postgres://$(PGUSER):$(PGPASSWORD)@ep-flat-sound-a4irwq5o-pooler.us-east-1.aws.neon.tech/tfe?sslmode=require" \
+	--to "file://migrations/" \
+	--var "destructive=true" \
+	--auto-approve

@@ -6,7 +6,7 @@ import (
 )
 
 func (r *Router) registerUserRoutes(api *mux.Router) {
-	userHandler := handlers.NewUserHandler(r.services.User, r.logger)
+	userHandler := handlers.NewUserHandler(r.service, r.logger)
 
 	// User endpoints
 	api.HandleFunc("/users", userHandler.List).Methods("GET")
@@ -14,4 +14,5 @@ func (r *Router) registerUserRoutes(api *mux.Router) {
 	api.HandleFunc("/users/{user_id}", userHandler.Read).Methods("GET")
 	api.HandleFunc("/users/{user_id}", userHandler.Update).Methods("PATCH")
 	api.HandleFunc("/users/{user_id}", userHandler.Delete).Methods("DELETE")
+	api.HandleFunc("/account/details", userHandler.AccountDetails).Methods("GET")
 }

@@ -1,7 +1,11 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/gorilla/mux"
+	"github.com/open-tfe/tfe-service/internal/auth"
+	"github.com/open-tfe/tfe-service/internal/constants"
 	"github.com/open-tfe/tfe-service/internal/service"
 	"go.uber.org/zap"
 )
@@ -9,25 +13,34 @@ import (
 // Router holds all the route configurations
 type Router struct {
 	*mux.Router
-	services *service.Services
-	logger   *zap.Logger
+	service service.Service
+	logger  *zap.Logger
 }
 
 // NewRouter creates and configures a new router
-func NewRouter(services *service.Services, logger *zap.Logger) *Router {
+func NewRouter(jwtSecret string, service service.Service, logger *zap.Logger) *Router {
 	r := &Router{
-		Router:   mux.NewRouter(),
-		services: services,
-		logger:   logger,
+		Router:  mux.NewRouter(),
+		service: service,
+		logger:  logger,
 	}
 
 	// API v2 routes
-	api := r.PathPrefix("/api/v2").Subrouter()
+	api := r.PathPrefix(constants.APIVersionPath).Subrouter()
+	api.Use(auth.JWTMiddleware(jwtSecret, r.logger))
 
 	// Register all routes
 	r.registerOrganizationRoutes(api)
 	r.registerProjectRoutes(api)
 	r.registerUserRoutes(api)
+
+	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		logger.Debug("Not Found",
+			zap.String("method", r.Method),
+			zap.String("url", r.URL.String()),
+		)
+	})
 
 	return r
 }

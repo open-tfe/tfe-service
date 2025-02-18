@@ -5,17 +5,18 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/hashicorp/jsonapi"
 	"github.com/open-tfe/tfe-service/internal/models"
 	"github.com/open-tfe/tfe-service/internal/service"
 	"go.uber.org/zap"
 )
 
 type OrganizationHandler struct {
-	svc    service.OrganizationService
+	svc    service.Service
 	logger *zap.Logger
 }
 
-func NewOrganizationHandler(svc service.OrganizationService, logger *zap.Logger) *OrganizationHandler {
+func NewOrganizationHandler(svc service.Service, logger *zap.Logger) *OrganizationHandler {
 	return &OrganizationHandler{
 		svc:    svc,
 		logger: logger.With(zap.String("handler", "organization")),
@@ -34,7 +35,7 @@ func (h *OrganizationHandler) List(w http.ResponseWriter, r *http.Request) {
 	h.logger.Debug("listing organizations", zap.String("query", r.URL.Query().Get("q")))
 
 	query := r.URL.Query().Get("q")
-	orgs, err := h.svc.List(r.Context(), query)
+	orgs, err := h.svc.ListOrganizations(r.Context(), query)
 	if err != nil {
 		h.logger.Error("failed to list organizations", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -77,7 +78,7 @@ func (h *OrganizationHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdOrg, err := h.svc.Create(r.Context(), org.ToTFE())
+	createdOrg, err := h.svc.CreateOrganization(r.Context(), org.ToTFE())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -100,7 +101,7 @@ func (h *OrganizationHandler) Read(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
 
-	org, err := h.svc.Read(r.Context(), name)
+	org, err := h.svc.ReadOrganization(r.Context(), name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -137,7 +138,7 @@ func (h *OrganizationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.Update(r.Context(), name, org.ToTFE()); err != nil {
+	if err := h.svc.UpdateOrganization(r.Context(), name, org.ToTFE()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -158,7 +159,7 @@ func (h *OrganizationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
 
-	if err := h.svc.Delete(r.Context(), name); err != nil {
+	if err := h.svc.DeleteOrganization(r.Context(), name); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -166,16 +167,25 @@ func (h *OrganizationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *OrganizationHandler) ShowEntitlementSet(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement entitlement set logic
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"data": map[string]interface{}{
-			"id":   "org-entitlement",
-			"type": "entitlement-set",
-			// Add other entitlement attributes here
-		},
-	})
+func (h *OrganizationHandler) ReadEntitlements(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	name := vars["name"]
+
+	h.logger.Debug("reading organization entitlements", zap.String("organization", name))
+
+	entitlements, err := h.svc.ReadOrganizationEntitlements(r.Context(), name)
+	if err != nil {
+		h.logger.Error("failed to read organization entitlements", zap.Error(err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.api+json")
+	err = jsonapi.MarshalPayload(w, entitlements)
+	if err != nil {
+		h.logger.Error("failed to marshal response", zap.Error(err))
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *OrganizationHandler) ShowModuleProducers(w http.ResponseWriter, r *http.Request) {

@@ -11,11 +11,11 @@ import (
 )
 
 type UserHandler struct {
-	svc    service.UserService
+	svc    service.Service
 	logger *zap.Logger
 }
 
-func NewUserHandler(svc service.UserService, logger *zap.Logger) *UserHandler {
+func NewUserHandler(svc service.Service, logger *zap.Logger) *UserHandler {
 	return &UserHandler{
 		svc:    svc,
 		logger: logger.With(zap.String("handler", "user")),
@@ -23,7 +23,7 @@ func NewUserHandler(svc service.UserService, logger *zap.Logger) *UserHandler {
 }
 
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
-	users, err := h.svc.List(r.Context())
+	users, err := h.svc.ListUsers(r.Context())
 	if err != nil {
 		h.logger.Error("failed to list users", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -47,7 +47,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdUser, err := h.svc.Create(r.Context(), &user)
+	createdUser, err := h.svc.CreateUser(r.Context(), &user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -67,7 +67,7 @@ func (h *UserHandler) Read(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
 
-	user, err := h.svc.Read(r.Context(), userID)
+	user, err := h.svc.ReadUser(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -93,7 +93,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedUser, err := h.svc.Update(r.Context(), userID, &user)
+	updatedUser, err := h.svc.UpdateUser(r.Context(), userID, &user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -112,10 +112,26 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
 
-	if err := h.svc.Delete(r.Context(), userID); err != nil {
+	if err := h.svc.DeleteUser(r.Context(), userID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *UserHandler) AccountDetails(w http.ResponseWriter, r *http.Request) {
+	user, err := h.svc.ReadCurrentUser(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/vnd.api+json")
+	err = jsonapi.MarshalPayload(w, user)
+	if err != nil {
+		h.logger.Error("failed to marshal response", zap.Error(err))
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
